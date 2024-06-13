@@ -1,0 +1,54 @@
+---
+- name: Practice annsible
+  hosts: ubuntu_server
+  become: yes
+  tasks:
+    - name: Create Folder
+      ansible.builtin.file:
+        path: /var/www/html/folder
+        state: directory
+        mode: "0755"
+
+    - name: Clone git repository
+      ansible.builtin.git:
+        repo: https://github.com/Sunkim278/I4-Vue.git
+        dest: /var/www/html/folder
+        update: true
+        force: true
+
+    - name: Setup Vue
+      shell: |
+        npm install
+        npm run build
+      args:
+        chdir: /var/www/html/folder
+      become: yes
+
+    - name: Create file for Nginx
+      copy:
+        dest: /etc/nginx/sites-available/vue.conf
+        content: |
+          server {
+            listen 80;
+            listen [::]:80;
+
+            server_name i4gic2024.staging;
+
+            root /var/www/html/folder/dist;
+            index index.html;
+
+            location / {
+              try_files $uri $uri/ =404;
+            }
+          }
+        mode: "0755"
+
+    - name: Create Symbolic Link to site-enabled
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/vue.conf
+        dest: /etc/nginx/sites-enabled/vue.conf
+        state: link
+
+    - name: Restart nginx server
+      command: systemctl restart nginx
+      become: yes
